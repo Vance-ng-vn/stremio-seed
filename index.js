@@ -11,6 +11,7 @@ dotenv.configDotenv({
 
 const LINUX_DEFAULT_CACHE_DIR = path.join(os.homedir(), '/.stremio-server/stremio-cache');
 const WINDOWS_DEFAULT_CACHE_DIR = path.join(os.homedir(), '/AppData/Roaming/stremio/stremio-server/stremio-cache');
+const MACOS_DEFAULT_CACHE_DIR = path.join(os.homedir(), '/Application Support/stremio-server/stremio-cache');
 const CUSTOM_CACHE_DIR = process.env.CACHE_DIR;
 
 let CacheDir;
@@ -18,8 +19,20 @@ if(os.platform() === 'win32')
     CacheDir = WINDOWS_DEFAULT_CACHE_DIR;
 if(os.platform() === 'linux')
     CacheDir = LINUX_DEFAULT_CACHE_DIR;
+if(os.platform() === 'darwin')
+    CacheDir = MACOS_DEFAULT_CACHE_DIR;
 if(CUSTOM_CACHE_DIR)
     CacheDir = CUSTOM_CACHE_DIR;
+
+CacheDir = CacheDir.replace(/\/$/, '');
+
+//Allow stremio-server folder
+if(CacheDir.split('/').pop()?.includes('stremio-server'))
+    CacheDir = path.join(CacheDir, 'stremio-cache');
+
+//Hear about some guy can custom cache folder
+if(CacheDir.split('/').pop() != 'stremio-cache' && fs.readdirSync(CacheDir)?.includes('stremio-cache'))
+    CacheDir = path.join(CacheDir, 'stremio-cache');
 
 const CUSTOM_CACHE_SIZE = process.env.CUSTOM_CACHE_SIZE;
 if(CUSTOM_CACHE_SIZE) {
