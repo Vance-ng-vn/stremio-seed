@@ -145,6 +145,15 @@ function deleteFolderRecursive(folderPath) {
     }
 }
 
+const createDirectories = (filePath) => {
+    const directory = path.dirname(filePath);
+
+    if (!fs.existsSync(directory)) {
+        createDirectories(directory);
+        fs.mkdirSync(directory);
+    }
+};
+
 async function addTorrent(folderPath) {
     const bitfield = path.join(folderPath, 'bitfield');
     const cacheTorrent = path.join(folderPath, 'cache');
@@ -161,9 +170,10 @@ async function addTorrent(folderPath) {
         //make symbol link
         for(const idx in torrent.files) {
             const offset = path.join(_folderPath, idx);
-            const syml = path.join(folderPath, torrent.files[idx].name);
+            const syml = path.join(folderPath, torrent.files[idx].path);
             //console.log(fs.existsSync(syml), syml)
             if(!fs.existsSync(syml) && fs.existsSync(offset)) {
+                createDirectories(syml);
                 fs.symlinkSync(offset, syml, 'file');
             }
         }

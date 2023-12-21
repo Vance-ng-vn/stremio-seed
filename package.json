@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "build": "esbuild ./index.js --bundle --outfile=./build/extensions/stremio-seeds/stremio-seeds.js --loader:.js=js --platform=node",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
