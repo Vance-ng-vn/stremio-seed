@@ -68,8 +68,7 @@ let INTERVAL_CHECK = process.env.INTERVAL_CHECK;
 if(INTERVAL_CHECK?.match(/sec/i)) INTERVAL_CHECK = parseFloat(INTERVAL_CHECK) * 1000; else
 if(INTERVAL_CHECK?.match(/min/i)) INTERVAL_CHECK = parseFloat(INTERVAL_CHECK) * 60 * 1000; else
 if(INTERVAL_CHECK?.match(/hour/i)) INTERVAL_CHECK = parseFloat(INTERVAL_CHECK) * 60 * 60 * 1000; else
-if(INTERVAL_CHECK?.match(/day/i)) INTERVAL_CHECK = parseFloat(INTERVAL_CHECK) * 24 * 60 * 60 * 1000; else
-INTERVAL_CHECK = 5 * 60 * 1000;
+if(INTERVAL_CHECK?.match(/day/i)) INTERVAL_CHECK = parseFloat(INTERVAL_CHECK) * 24 * 60 * 60 * 1000;
 
 const RATIO_LIMIT = parseFloat(process.env.RATIO_LIMIT);
 const BLOCK_DOWNLOAD = process.env.BLOCK_DOWNLOAD?.match(/true/i) ? true : false;
@@ -97,9 +96,11 @@ async function main(){
     }
 
     await Update();
-    setInterval(async () => {
-        await Update();
-    }, INTERVAL_CHECK);
+    if(INTERVAL_CHECK) {
+        setInterval(async () => {
+            await Update();
+        }, INTERVAL_CHECK);
+    }
 }
 
 async function Update() {

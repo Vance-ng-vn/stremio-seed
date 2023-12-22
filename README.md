@@ -14,7 +14,7 @@ This extension will auto update files from the Stremio Cache to the qBittorrent 
 4. Save! Restart Stremio.
 
 **CONFIG**  
-`INTERVAL_CHECK` sec/min/hour/day  
+`INTERVAL_CHECK` sec/min/hour/day  set '0' to disable
 `CACHE_DIR` custom cache dir (path/to/stremio-cache)  
 `CUSTOM_CACHE_SIZE` kb/mb/gb/tb Overide Stremio Cache-Size Settings  
 `QT_HOST` qBittorrent host  
