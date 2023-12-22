@@ -35,6 +35,8 @@ class qbittorrentAPI {
         this.up_limit = options.UPLOAD_LIMIT;
         this.ratio = options.RATIO_LIMIT;
         this.include_trackers = options.INCLUDE_TRACKER;
+        this.block_dl = options.BLOCK_DOWNLOAD;
+        this.skip_check = options.SKIP_CHECKING;
     }
 
     async login() {
@@ -107,9 +109,12 @@ class qbittorrentAPI {
         formData.append('torrents', fs.createReadStream(pathFile));
         formData.append('savepath', saveDir);
         formData.append('category', 'Stremio Seeds');
+        formData.append('firstLastPiecePrio', 'true');
         if(rename) formData.append('rename', rename);
         if(this.up_limit) formData.append('upLimit', this.up_limit);
         if(this.ratio) formData.append('ratioLimit', this.ratio);
+        if(this.block_dl) formData.append('dlLimit', 1024); //qBittorrent only allow set DL Limit to 1KiB/s
+        if(this.skip_check) formData.append('skip_checking', 'true'); //skip check the torrent hash when added, for performance!
         //console.log(formData)
 
         return await this.request('/torrents/add', {

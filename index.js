@@ -72,9 +72,11 @@ if(INTERVAL_CHECK?.match(/day/i)) INTERVAL_CHECK = parseFloat(INTERVAL_CHECK) * 
 INTERVAL_CHECK = 5 * 60 * 1000;
 
 const RATIO_LIMIT = parseFloat(process.env.RATIO_LIMIT);
+const BLOCK_DOWNLOAD = process.env.BLOCK_DOWNLOAD?.match(/true/i) ? true : false;
+const SKIP_CHECKING = process.env.SKIP_CHECKING?.match(/true/i) ? true : false;
 const INCLUDE_TRACKER = process.env.INCLUDE_STREMIO_TRACKER?.match(/true/i) ? true : false;
 
-const qbittorrent = new qt(BASE_URL, USERNAME, PASSWORD, { UPLOAD_LIMIT, RATIO_LIMIT, INCLUDE_TRACKER });
+const qbittorrent = new qt(BASE_URL, USERNAME, PASSWORD, { UPLOAD_LIMIT, RATIO_LIMIT, INCLUDE_TRACKER, BLOCK_DOWNLOAD, SKIP_CHECKING });
 
 console.log('############### Stremio Seeds ##############');
 console.log('OS:', os.platform());
@@ -85,48 +87,51 @@ console.log('UPLOAD LIMIT:', UPLOAD_LIMIT);
 console.log('INCLUDE TRACKERS:', INCLUDE_TRACKER);
 console.log('############# END ##############');
 
-async function main() { 
+main();
+
+async function main(){ 
     const login = await qbittorrent.login().catch(err => console.error(err));
     if(!login) {
         console.error('Login Fail!');
         return setTimeout(() => main(), 10000);
     }
 
-    //CacheDir = process.cwd();
+    await Update();
     setInterval(async () => {
-        try {
-            let dirs = fs.readdirSync(CacheDir)?.filter(_dir => fs.statSync(path.join(CacheDir, _dir)).isDirectory());
-            //=console.log(dirs.length);
-            const torrentList = await qbittorrent.getTorrentList({
-                catgory: 'Stremio Seeds'
-            });
-            if(!torrentList) return;
-
-            const torrentListHashes = torrentList.map(_torrent => _torrent.hash);
-
-            const expiredTorrentsHash = torrentListHashes.filter(_hash => !checkFolder(path.join(CacheDir, _hash)));
-            if(expiredTorrentsHash.length) {
-                console.log('Deleting Expired Torrents:', expiredTorrentsHash.length);
-                await qbittorrent.removeTorrents(expiredTorrentsHash, true);
-                for(const _dir of expiredTorrentsHash) {
-                    deleteFolderRecursive(path.join(CacheDir, _dir));
-                }
-            }
-
-            const validDirs = dirs.filter(dir => !torrentListHashes.find(_hash => _hash === dir));
-
-            for(const dir of validDirs) {
-                await addTorrent(path.join(CacheDir, dir));
-            }
-        }
-        catch(err) {
-            console.error('Unknow Error!', err.stack);
-        }
+        await Update();
     }, INTERVAL_CHECK);
-
 }
 
-main()
+async function Update() {
+    try {
+        let dirs = fs.readdirSync(CacheDir)?.filter(_dir => fs.statSync(path.join(CacheDir, _dir)).isDirectory());
+        //=console.log(dirs.length);
+        const torrentList = await qbittorrent.getTorrentList({
+            catgory: 'Stremio Seeds'
+        });
+        if(!torrentList) return;
+
+        const torrentListHashes = torrentList.map(_torrent => _torrent.hash);
+
+        const expiredTorrentsHash = torrentListHashes.filter(_hash => !checkFolder(path.join(CacheDir, _hash)));
+        if(expiredTorrentsHash.length) {
+            console.log('Deleting Expired Torrents:', expiredTorrentsHash.length);
+            await qbittorrent.removeTorrents(expiredTorrentsHash, true);
+            for(const _dir of expiredTorrentsHash) {
+                deleteFolderRecursive(path.join(CacheDir, _dir));
+            }
+        }
+
+        const validDirs = dirs.filter(dir => !torrentListHashes.find(_hash => _hash === dir));
+
+        for(const dir of validDirs) {
+            await addTorrent(path.join(CacheDir, dir));
+        }
+    }
+    catch(err) {
+        console.error('Unknow Error!', err.stack);
+    }
+}
 
 async function checkFolder(folderPath) {
     const bitfield = path.join(folderPath, 'bitfield');
