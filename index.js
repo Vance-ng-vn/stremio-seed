@@ -35,6 +35,7 @@ if(CacheDir.split('/').pop() != 'stremio-cache' && fs.readdirSync(CacheDir)?.inc
     CacheDir = path.join(CacheDir, 'stremio-cache');
 
 const CUSTOM_CACHE_SIZE = process.env.CUSTOM_CACHE_SIZE;
+let _CUSTOM_CACHE_SIZE;
 if(CUSTOM_CACHE_SIZE) {
     let size = 0;
     if(CUSTOM_CACHE_SIZE?.match(/kb/i)) size = parseFloat(CUSTOM_CACHE_SIZE) * 1024; else
@@ -42,6 +43,7 @@ if(CUSTOM_CACHE_SIZE) {
     if(CUSTOM_CACHE_SIZE?.match(/gb/i)) size = parseFloat(CUSTOM_CACHE_SIZE) * 1024 * 1024 * 1024; else
     if(CUSTOM_CACHE_SIZE?.match(/tb/i)) size = parseFloat(CUSTOM_CACHE_SIZE) * 1024 * 1024 * 1024 * 1024; else
     size = parseInt(CUSTOM_CACHE_SIZE);
+    _CUSTOM_CACHE_SIZE = size;
     if(size) {
         const configFile = path.join(CacheDir, '..', 'server-settings.json');
         const _file = fs.readFileSync(configFile, 'utf-8');
@@ -74,12 +76,14 @@ const RATIO_LIMIT = parseFloat(process.env.RATIO_LIMIT);
 const BLOCK_DOWNLOAD = process.env.BLOCK_DOWNLOAD?.match(/true/i) ? true : false;
 const SKIP_CHECKING = process.env.SKIP_CHECKING?.match(/true/i) ? true : false;
 const INCLUDE_TRACKER = process.env.INCLUDE_STREMIO_TRACKER?.match(/true/i) ? true : false;
+const KEEP_TORRENT_LOW_SEEDER = process.env.KEEP_TORRENT_LOW_SEEDER?.match(/true/i) ? true : false;
 
 const qbittorrent = new qt(BASE_URL, USERNAME, PASSWORD, { UPLOAD_LIMIT, RATIO_LIMIT, INCLUDE_TRACKER, BLOCK_DOWNLOAD, SKIP_CHECKING });
 
 console.log('############### Stremio Seeds ##############');
 console.log('OS:', os.platform());
 console.log('Cache Dir:', CacheDir);
+if(CUSTOM_CACHE_SIZE) console.log('Cache Size:', CUSTOM_CACHE_SIZE);
 console.log('INTERVAL CHECK:', INTERVAL_CHECK);
 console.log('RATIO LIMIT:', RATIO_LIMIT),
 console.log('UPLOAD LIMIT:', UPLOAD_LIMIT);
@@ -89,26 +93,38 @@ console.log('############# END ##############');
 main();
 
 async function main(){ 
-    const login = await qbittorrent.login().catch(err => console.error(err));
-    if(!login) {
-        console.error('Login Fail!');
-        return setTimeout(() => main(), 10000);
-    }
+    try {
+        const login = await qbittorrent.login().catch(err => console.error(err));
+        if(!login) {
+            console.error('Login Fail!');
+            return setTimeout(() => main(), 10000);
+        }
 
-    await Update();
-    if(INTERVAL_CHECK) {
-        setInterval(async () => {
-            await Update();
-        }, INTERVAL_CHECK);
+        cleanEmptyCache();
+        await Update();
+        if(INTERVAL_CHECK) {
+            setInterval(async () => {
+                await Update();
+            }, INTERVAL_CHECK);
+        }
+    }
+    catch(err) {
+        console.error(err);
     }
 }
 
 async function Update() {
     try {
+        if(KEEP_TORRENT_LOW_SEEDER && _CUSTOM_CACHE_SIZE) {
+            if((getFolderSize(CacheDir)/_CUSTOM_CACHE_SIZE)*100 >= 90){
+                await cleanTorrentsCache();
+            }
+        }
+
         let dirs = fs.readdirSync(CacheDir)?.filter(_dir => fs.statSync(path.join(CacheDir, _dir)).isDirectory());
-        //=console.log(dirs.length);
+        //console.log(dirs.length);
         const torrentList = await qbittorrent.getTorrentList({
-            catgory: 'Stremio Seeds'
+            category: 'Stremio Seeds'
         });
         if(!torrentList) return;
 
@@ -119,7 +135,7 @@ async function Update() {
             console.log('Deleting Expired Torrents:', expiredTorrentsHash.length);
             await qbittorrent.removeTorrents(expiredTorrentsHash, true);
             for(const _dir of expiredTorrentsHash) {
-                deleteFolderRecursive(path.join(CacheDir, _dir));
+                fs.rmSync(path.join(CacheDir, _dir), {recursive: true});
             }
         }
 
@@ -134,34 +150,100 @@ async function Update() {
     }
 }
 
-async function checkFolder(folderPath) {
-    const bitfield = path.join(folderPath, 'bitfield');
-    const cacheTorrent = path.join(folderPath, 'cache');
-    if(!fs.existsSync(bitfield) || !fs.existsSync(cacheTorrent)) return;
-    return true;
+function cleanEmptyCache() {
+    console.log('Cleaning empty folder...');
+    const dirs = fs.readdirSync(CacheDir)?.filter(_dir => fs.statSync(path.join(CacheDir, _dir)).isDirectory());
+    for(const dir of dirs) {
+        const folderPath = path.join(CacheDir, dir);
+        if(!checkFolder(folderPath)) {
+            console.log('Deleting folder:', folderPath);
+            fs.rmSync(folderPath, {recursive: true});
+        }
+    }
 }
 
-function deleteFolderRecursive(folderPath) {
-    if (fs.existsSync(folderPath)) {
-        fs.readdirSync(folderPath).forEach((file) => {
-            const filePath = path.join(folderPath, file);
-    
-            if (fs.lstatSync(filePath).isFile()) {
-                console.log("deleting file: " + filePath);
-                fs.unlinkSync(filePath);
-            } else {
-                console.log("deleting folder: " + filePath);    
-                try {
-                    deleteFolderRecursive(filePath);
-                }
-                catch(err){
-                    fs.unlinkSync(filePath);
-                    console.log("[ERROR] Cant delete this file: " + filePath);
-                }
+async function cleanTorrentsCache() {
+    console.log('Cleaning torrent, bc cache is full...');
+    const dirs = fs.readdirSync(CacheDir)?.filter(_dir => fs.statSync(path.join(CacheDir, _dir)).isDirectory());
+    //console.log(dirs.length);
+    const torrentList = await qbittorrent.getTorrentList({
+        category: 'Stremio Seeds',
+        sort: 'num_complete'
+    });
+    if(!torrentList) return;
+
+    const torrentListHashes = torrentList.map(_torrent => _torrent.hash);
+
+    const _dirs = dirs.map(_dir => {
+        return {
+            name: _dir,
+            time: fs.statSync(path.join(CacheDir, _dir)).birthtimeMs
+        }
+    })
+    .sort((a,b) => b.time - a.time)
+    .slice(3); //skip last 3 file newest
+
+    //clean Uncompleted Torrents;
+    for(const _dir of _dirs.reverse()) {
+        if((getFolderSize(CacheDir)/_CUSTOM_CACHE_SIZE)*100 >= 90) {
+            const bitfield = path.join(CacheDir, _dir.name, 'bitfield');
+            const cacheTorrent = path.join(CacheDir, _dir.name, 'cache');
+            if(!fs.existsSync(bitfield) || !fs.existsSync(cacheTorrent)) return;
+            const torrent = parseTorrent(fs.readFileSync(cacheTorrent));
+            const totalPieces = (torrent.length - torrent.lastPieceLength)/torrent.pieceLength + 1;
+            if(!checkBitField(bitfield, totalPieces)) {
+                console.log('Deleting folder:', _dir.name);
+                fs.rmSync(path.join(CacheDir, _dir.name), {recursive:true});
             }
-        });
-        fs.rmdirSync(folderPath);
+        }
     }
+
+    //clean Completed Torrents
+    while((getFolderSize(CacheDir)/_CUSTOM_CACHE_SIZE)*100 >= 90) {
+        let shouldDeleteIdx = torrentListHashes.reverse().findIndex(_hash => _dirs.find(_dir => _dir.name === _hash));
+
+        if(shouldDeleteIdx !== -1) {
+            let shouldDelete = torrentListHashes.reverse().splice(shouldDeleteIdx, 1)[0];
+            console.log('Deleing Torrent To Empty Cache:', shouldDelete);
+            await qbittorrent.removeTorrents([shouldDelete], true);
+            fs.rmSync(path.join(CacheDir, shouldDelete), {recursive: true});
+        } else break;
+    }
+    
+}
+
+function getFolderSize(folderPath) {
+    let totalSize = 0;
+    const traverse = (currentPath) => {
+      const files = fs.readdirSync(currentPath);
+      files.forEach(file => {
+        const filePath = path.join(currentPath, file);
+        const stats = fs.lstatSync(filePath);
+        if (stats.isDirectory()) {
+          traverse(filePath);
+        }
+        else if(stats.isSymbolicLink()) {
+            try {
+                totalSize += stats.size;
+            }
+            catch(err) {
+                console.error('symbolink error:', filePath);
+            }
+        }
+        else {
+          totalSize += stats.size;
+        }
+      });
+    };
+    traverse(folderPath);
+    return totalSize;
+}
+
+function checkFolder(folderPath) {
+    const bitfield = path.join(folderPath, 'bitfield');
+    const cacheTorrent = path.join(folderPath, 'cache');
+    if(!fs.existsSync(bitfield) || !fs.existsSync(cacheTorrent)) return false;
+    return true;
 }
 
 const createDirectories = (filePath) => {

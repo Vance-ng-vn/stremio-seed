@@ -71,7 +71,7 @@ class qbittorrentAPI {
 
     async getTorrentList(options = {
         filter: null,
-        catgory: null,
+        category: null,
         tag: null,
         sort: null,
         reverse: false,
@@ -81,7 +81,7 @@ class qbittorrentAPI {
     }) {
         let data = [];
         if(options.filter) data.push('filter=' + options.filter);
-        if(options.catgory) data.push('category=' + options.catgory);
+        if(options.category) data.push('category=' + options.category);
         if(options.tag) data.push('tag=' + options.tag);
         if(options.sort) data.push('sort=' + options.sort);
         if(options.reverse) data.push('reverse=' + options.reverse);
@@ -151,7 +151,7 @@ class qbittorrentAPI {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
-            data: 'hashes=' + hashes.join('|') + deleteFile ? '&deleteFiles=true' : '&deleteFiles=false'
+            data: 'hashes=' + hashes.join('|') + (deleteFile ? '&deleteFiles=true' : '&deleteFiles=false')
         })
         .then(res => {
             if(res.status == 200) {
