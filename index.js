@@ -116,8 +116,9 @@ async function main(){
 async function Update() {
     try {
         if(KEEP_TORRENT_LOW_SEEDER && _CUSTOM_CACHE_SIZE) {
-            if((getFolderSize(CacheDir)/_CUSTOM_CACHE_SIZE)*100 >= 90){
-                await cleanTorrentsCache();
+            const currentCacheSize = getFolderSize(CacheDir);
+            if((currentCacheSize/_CUSTOM_CACHE_SIZE)*100 >= 90){
+                await cleanTorrentsCache(currentCacheSize);
             }
         }
 
@@ -162,7 +163,7 @@ function cleanEmptyCache() {
     }
 }
 
-async function cleanTorrentsCache() {
+async function cleanTorrentsCache(currentSize) {
     console.log('Cleaning torrent, bc cache is full...');
     const dirs = fs.readdirSync(CacheDir)?.filter(_dir => fs.statSync(path.join(CacheDir, _dir)).isDirectory());
     //console.log(dirs.length);
@@ -183,33 +184,41 @@ async function cleanTorrentsCache() {
     .sort((a,b) => b.time - a.time)
     .slice(3); //skip last 3 file newest
 
+    let _removed_size = 0;
+
+    const _remove_size = currentSize - _CUSTOM_CACHE_SIZE*90/100;
+    //console.log('will remove', _remove_size)
+
     //clean Uncompleted Torrents;
     for(const _dir of _dirs.reverse()) {
-        if((getFolderSize(CacheDir)/_CUSTOM_CACHE_SIZE)*100 >= 90) {
-            const bitfield = path.join(CacheDir, _dir.name, 'bitfield');
-            const cacheTorrent = path.join(CacheDir, _dir.name, 'cache');
-            if(!fs.existsSync(bitfield) || !fs.existsSync(cacheTorrent)) return;
-            const torrent = parseTorrent(fs.readFileSync(cacheTorrent));
-            const totalPieces = (torrent.length - torrent.lastPieceLength)/torrent.pieceLength + 1;
-            if(!checkBitField(bitfield, totalPieces)) {
-                console.log('Deleting folder:', _dir.name);
-                fs.rmSync(path.join(CacheDir, _dir.name), {recursive:true});
-            }
+        const folderPath = path.join(CacheDir, _dir.name);
+        if(!checkFolder(folderPath)) continue;
+        const bitfield = path.join(folderPath, 'bitfield');
+        const cacheTorrent = path.join(folderPath, 'cache');
+        const torrent = parseTorrent(fs.readFileSync(cacheTorrent));
+        const totalPieces = (torrent.length - torrent.lastPieceLength)/torrent.pieceLength + 1;
+        if(!checkBitField(bitfield, totalPieces)) {
+            _removed_size += getFolderSize(folderPath);
+            console.log('Cache Full: Deleting Folder:', _dir.name);
+            fs.rmSync(folderPath, {recursive: true});
         }
+        if(_removed_size >= _remove_size) break;
     }
 
     //clean Completed Torrents
-    while((getFolderSize(CacheDir)/_CUSTOM_CACHE_SIZE)*100 >= 90) {
-        let shouldDeleteIdx = torrentListHashes.reverse().findIndex(_hash => _dirs.find(_dir => _dir.name === _hash));
-
+    while(_removed_size < _remove_size && torrentListHashes.length) {
+        const shouldDeleteIdx = torrentListHashes.reverse().findIndex(_hash => _dirs.find(_dir => _dir.name === _hash));
         if(shouldDeleteIdx !== -1) {
-            let shouldDelete = torrentListHashes.reverse().splice(shouldDeleteIdx, 1)[0];
-            console.log('Deleing Torrent To Empty Cache:', shouldDelete);
+            const shouldDelete = torrentListHashes.reverse().splice(shouldDeleteIdx, 1)[0];
+            const folderPath = path.join(CacheDir, shouldDelete);
+            _removed_size += getFolderSize(folderPath);
+            console.log('Cache Full: Deleing Torrent + Folder:', shouldDelete);
             await qbittorrent.removeTorrents([shouldDelete], true);
-            fs.rmSync(path.join(CacheDir, shouldDelete), {recursive: true});
+            fs.rmSync(folderPath, {recursive: true});
         } else break;
     }
-    
+
+    console.log('Removed', Math.floor(_removed_size/(1024*1024)), 'MB');
 }
 
 function getFolderSize(folderPath) {
