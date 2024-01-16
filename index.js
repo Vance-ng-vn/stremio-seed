@@ -10,7 +10,7 @@ dotenv.configDotenv({
 })
 
 const LINUX_DEFAULT_CACHE_DIR = path.join(os.homedir(), '/.stremio-server/stremio-cache');
-const WINDOWS_DEFAULT_CACHE_DIR = path.join(os.homedir(), '/AppData/Roaming/stremio/stremio-server/stremio-cache');
+const WINDOWS_DEFAULT_CACHE_DIR = path.join(os.homedir(), '/AppData/Roaming/stremio/stremio-server/'); // Fix
 const MACOS_DEFAULT_CACHE_DIR = path.join(os.homedir(), '/Application Support/stremio-server/stremio-cache');
 const CUSTOM_CACHE_DIR = process.env.CACHE_DIR;
 
@@ -143,6 +143,7 @@ async function Update() {
         const validDirs = dirs.filter(dir => !torrentListHashes.find(_hash => _hash === dir));
 
         for(const dir of validDirs) {
+            console.log(path.join(CacheDir, dir))
             await addTorrent(path.join(CacheDir, dir));
         }
     }
@@ -281,7 +282,7 @@ async function addTorrent(folderPath) {
         for(const idx in torrent.files) {
             const offset = path.join(_folderPath, idx);
             const syml = path.join(folderPath, torrent.files[idx].path);
-            //console.log(fs.existsSync(syml), syml)
+            console.log(fs.existsSync(syml), syml)
             if(!fs.existsSync(syml) && fs.existsSync(offset)) {
                 createDirectories(syml);
                 fs.symlinkSync(offset, syml, 'file');
