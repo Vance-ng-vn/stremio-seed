@@ -9,25 +9,27 @@ dotenv.configDotenv({
     path: path.join(__dirname, 'stremio-seeds.config')
 })
 
+const CURRENT_OS = os.platform();
+
 const LINUX_DEFAULT_CACHE_DIR = path.join(os.homedir(), '/.stremio-server/stremio-cache');
 const WINDOWS_DEFAULT_CACHE_DIR = path.join(os.homedir(), '/AppData/Roaming/stremio/stremio-server/stremio-cache');
 const MACOS_DEFAULT_CACHE_DIR = path.join(os.homedir(), '/Application Support/stremio-server/stremio-cache');
 const CUSTOM_CACHE_DIR = process.env.CACHE_DIR;
 
 let CacheDir;
-if(os.platform() === 'win32')
+if(CURRENT_OS === 'win32')
     CacheDir = WINDOWS_DEFAULT_CACHE_DIR;
-if(os.platform() === 'linux')
+if(CURRENT_OS === 'linux')
     CacheDir = LINUX_DEFAULT_CACHE_DIR;
-if(os.platform() === 'darwin')
+if(CURRENT_OS === 'darwin')
     CacheDir = MACOS_DEFAULT_CACHE_DIR;
 if(CUSTOM_CACHE_DIR)
     CacheDir = CUSTOM_CACHE_DIR;
 
-CacheDir = CacheDir.replace(/\/$/, '');
+CacheDir = CacheDir.replace(/\/$|\\$/, '');
 
 //Allow stremio-server folder
-if(CacheDir.split('/').pop()?.includes('stremio-server'))
+if((CURRENT_OS === 'win32' ? CacheDir.split('\\') : CacheDir.split('/')).pop()?.includes('stremio-server'))
     CacheDir = path.join(CacheDir, 'stremio-cache');
 
 //Hear about some guy can custom cache folder
@@ -81,7 +83,7 @@ const KEEP_TORRENT_LOW_SEEDER = process.env.KEEP_TORRENT_LOW_SEEDER?.match(/true
 const qbittorrent = new qt(BASE_URL, USERNAME, PASSWORD, { UPLOAD_LIMIT, RATIO_LIMIT, INCLUDE_TRACKER, BLOCK_DOWNLOAD, SKIP_CHECKING });
 
 console.log('############### Stremio Seeds ##############');
-console.log('OS:', os.platform());
+console.log('OS:', CURRENT_OS);
 console.log('Cache Dir:', CacheDir);
 if(CUSTOM_CACHE_SIZE) console.log('Cache Size:', CUSTOM_CACHE_SIZE);
 console.log('INTERVAL CHECK:', INTERVAL_CHECK);
@@ -182,7 +184,7 @@ async function cleanTorrentsCache(currentSize) {
         }
     })
     .sort((a,b) => b.time - a.time)
-    .slice(3); //skip last 3 file newest
+    .slice(3); //skip 3 files newest
 
     let _removed_size = 0;
 
