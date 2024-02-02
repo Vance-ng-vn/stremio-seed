@@ -74,11 +74,13 @@ if(INTERVAL_CHECK?.match(/min/i)) INTERVAL_CHECK = parseFloat(INTERVAL_CHECK) * 
 if(INTERVAL_CHECK?.match(/hour/i)) INTERVAL_CHECK = parseFloat(INTERVAL_CHECK) * 60 * 60 * 1000; else
 if(INTERVAL_CHECK?.match(/day/i)) INTERVAL_CHECK = parseFloat(INTERVAL_CHECK) * 24 * 60 * 60 * 1000;
 
+const START_SEED_PERCENT = process.env.START_SEED_PERCENT ? 0 < parseInt(process.env.START_SEED_PERCENT) <= 100 ? parseInt(process.env.START_SEED_PERCENT) : 90 : 90;
 const RATIO_LIMIT = parseFloat(process.env.RATIO_LIMIT);
 const BLOCK_DOWNLOAD = process.env.BLOCK_DOWNLOAD?.match(/true/i) ? true : false;
 const SKIP_CHECKING = process.env.SKIP_CHECKING?.match(/true/i) ? true : false;
 const INCLUDE_TRACKER = process.env.INCLUDE_STREMIO_TRACKER?.match(/true/i) ? true : false;
 const KEEP_TORRENT_LOW_SEEDER = process.env.KEEP_TORRENT_LOW_SEEDER?.match(/true/i) ? true : false;
+const CLEAN_CACHE_PERCENT = parseInt(process.env.CLEAN_CACHE_PERCENT) || 95;
 
 const qbittorrent = new qt(BASE_URL, USERNAME, PASSWORD, { UPLOAD_LIMIT, RATIO_LIMIT, INCLUDE_TRACKER, BLOCK_DOWNLOAD, SKIP_CHECKING });
 
@@ -119,7 +121,7 @@ async function Update() {
     try {
         if(KEEP_TORRENT_LOW_SEEDER && _CUSTOM_CACHE_SIZE) {
             const currentCacheSize = getFolderSize(CacheDir);
-            if((currentCacheSize/_CUSTOM_CACHE_SIZE)*100 >= 90){
+            if((currentCacheSize/_CUSTOM_CACHE_SIZE)*100 >= CLEAN_CACHE_PERCENT){
                 await cleanTorrentsCache(currentCacheSize);
             }
         }
@@ -188,7 +190,7 @@ async function cleanTorrentsCache(currentSize) {
 
     let _removed_size = 0;
 
-    const _remove_size = currentSize - _CUSTOM_CACHE_SIZE*90/100;
+    const _remove_size = currentSize - _CUSTOM_CACHE_SIZE*CLEAN_CACHE_PERCENT/100;
     //console.log('will remove', _remove_size)
 
     //clean Uncompleted Torrents;
@@ -312,6 +314,6 @@ function checkBitField(bitFieldPath, totalPieces) {
     }
     const percent = (pieces/totalPieces) * 100;
     console.log('   => Pieces:', pieces, 'Percent:', Math.floor(percent * 100)/100 + '%');
-    if(percent >= 90) return true;
+    if(percent >= START_SEED_PERCENT) return true;
     return false;
 }

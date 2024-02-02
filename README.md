@@ -16,6 +16,7 @@ This extension will auto update files from the Stremio Cache to the qBittorrent 
 4. Save! Restart Stremio.
 
 **CONFIG**  
+`START_SEED_PERCENT` Accept seed files that have been downloaded X%, 0 < X <= 100. Default is 90%  
 `INTERVAL_CHECK` sec/min/hour/day leave empty to disable  
 `CACHE_DIR` your Stremio's cache dir (path/to/stremio-cache) leave empty to use dedault cache dir  
 `CUSTOM_CACHE_SIZE` kb/mb/gb/tb Overide Stremio Cache-Size Settings  

@@ -1,6 +1,6 @@
 {
   "name": "stremio-qbittoreent-be-seeder",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Auto add Cache to Seed",
   "main": "index.js",
   "scripts": {
