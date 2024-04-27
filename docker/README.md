@@ -3,7 +3,7 @@ podman build -t stremio-seed .
 **PULL**  
 podman pull vancengvn/stremio-seed  
 **RUN**  
-podman run -d -p 11470:11470 -p 12470:12470 -p 13470:13470 -e INTERVAL_CHECK={param} -e CUSTOM_CACHE_SIZE={param} ... stremio-seed-docker  
+podman run -d -p 11470:11470 -p 12470:12470 -p 13470:13470 -e INTERVAL_CHECK={param} -e CUSTOM_CACHE_SIZE={param} ... stremio-seed  
 **STREMIO SERVER**  
 port:  
 - http: 11470  
