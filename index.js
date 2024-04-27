@@ -33,8 +33,10 @@ if((CURRENT_OS === 'win32' ? CacheDir.split('\\') : CacheDir.split('/')).pop()?.
     CacheDir = path.join(CacheDir, 'stremio-cache');
 
 //Hear about some guy can custom cache folder
-if(CacheDir.split('/').pop() != 'stremio-cache' && fs.readdirSync(CacheDir)?.includes('stremio-cache'))
-    CacheDir = path.join(CacheDir, 'stremio-cache');
+// if(CacheDir.split('/').pop() != 'stremio-cache' && fs.readdirSync(CacheDir)?.includes('stremio-cache'))
+//     CacheDir = path.join(CacheDir, 'stremio-cache');
+
+if(!fs.existsSync(CacheDir)) fs.mkdirSync(CacheDir, {recursive: true});
 
 const CUSTOM_CACHE_SIZE = process.env.CUSTOM_CACHE_SIZE;
 let _CUSTOM_CACHE_SIZE;
@@ -48,10 +50,18 @@ if(CUSTOM_CACHE_SIZE) {
     _CUSTOM_CACHE_SIZE = size;
     if(size) {
         const configFile = path.join(CacheDir, '..', 'server-settings.json');
-        const _file = fs.readFileSync(configFile, 'utf-8');
-        const _json = JSON.parse(_file);
-        _json.cacheSize = size;
-        fs.writeFileSync(configFile, JSON.stringify(_json, null, 2));
+        if(fs.existsSync(configFile)) {
+            const _file = fs.readFileSync(configFile, 'utf-8');
+            const _json = JSON.parse(_file);
+            _json.cacheSize = size;
+            fs.writeFileSync(configFile, JSON.stringify(_json, null, 2));
+        }
+        else {
+            const settings = {
+                cacheSize: size
+            };
+            fs.writeFileSync(configFile, JSON.stringify(settings, null, 2));
+        }
     }
 
 }

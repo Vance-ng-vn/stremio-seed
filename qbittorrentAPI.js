@@ -53,6 +53,7 @@ class qbittorrentAPI {
                 return true;
             }
             else {
+                console.log('Login to qbittorrent failed!');
                 return false;
             }
         }).catch(err => {
